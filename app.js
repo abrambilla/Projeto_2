@@ -75,7 +75,7 @@ function debounce(func, delay) {
 
 // Função de Geocodificação (busca de endereço) usando Nominatim
 async function geocodeAddress(address) {
-    const userAgent = 'MeuAppDeRotasEscolar/1.0 (https://github.com/seu-usuario/seu-repo)'; // Substitua com seu user-agent real e URL do projeto
+    const userAgent = 'MeuAppDeRotasEscolar/1.0';
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&addressdetails=1&limit=1`;
 
     try {
@@ -97,6 +97,25 @@ async function geocodeAddress(address) {
         console.error('Erro ao geocodificar endereço:', error);
     }
     return null;
+}
+
+// Função para buscar múltiplos endereços (usada no autocomplete)
+async function searchAddresses(address) {
+    const userAgent = 'MeuAppDeRotasEscolar/1.0';
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&addressdetails=1&limit=5`;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': userAgent
+            }
+        });
+        const data = await response.json();
+        return data || [];
+    } catch (error) {
+        console.error('Erro ao buscar múltiplos endereços:', error);
+    }
+    return [];
 }
 
 // Sistema de fallback para geocodificação
@@ -169,15 +188,29 @@ function setupAutocomplete(inputElement) {
             autocompleteList.appendChild(b);
         }
 
-        const results = await geocodeAddress(val); // Usar geocodeAddress diretamente para autocomplete
-        if (results) {
-            const b = document.createElement("DIV");
-            b.innerHTML = `<strong>${results.display_name.substr(0, val.length)}</strong>${results.display_name.substr(val.length)}`;
-            b.addEventListener("click", function (e) {
-                inputElement.value = results.display_name;
-                closeAllLists();
+        const results = await searchAddresses(val); // Usar a nova função que retorna múltiplos resultados
+        if (results && results.length > 0) {
+            results.forEach(result => {
+                const b = document.createElement("DIV");
+                const displayName = result.display_name;
+                
+                // Realçar o texto buscado
+                const index = displayName.toLowerCase().indexOf(val.toLowerCase());
+                if (index !== -1) {
+                    const before = displayName.substring(0, index);
+                    const match = displayName.substring(index, index + val.length);
+                    const after = displayName.substring(index + val.length);
+                    b.innerHTML = `${before}<strong>${match}</strong>${after}`;
+                } else {
+                    b.innerHTML = displayName;
+                }
+
+                b.addEventListener("click", function (e) {
+                    inputElement.value = displayName;
+                    closeAllLists();
+                });
+                autocompleteList.appendChild(b);
             });
-            autocompleteList.appendChild(b);
         }
     }, 400)); // Debounce de 400ms
 
@@ -253,11 +286,8 @@ addWaypointBtn.addEventListener('click', () => {
         const idToRemove = e.target.dataset.waypointId;
         document.querySelector(`[data-waypoint-id="${idToRemove}"]`).remove();
         delete waypoints[idToRemove];
-        if (markers[idToRemove]) {
-            map.removeLayer(markers[idToRemove]);
-            delete markers[idToRemove];
-        }
-        // Recalcular rota se houver uma
+        
+        // Recalcular rota se houver uma ativa
         if (routingControl) {
             calculateRouteBtn.click();
         }
@@ -282,116 +312,110 @@ calculateRouteBtn.addEventListener('click', async () => {
         return;
     }
 
-    const originCoords = await geocodeAddressWithFallback(originAddress);
-    const destinationCoords = await geocodeAddressWithFallback(destinationAddress);
+    calculateRouteBtn.disabled = true;
+    calculateRouteBtn.textContent = 'Buscando coordenadas...';
 
-    if (!originCoords) {
-        alert('Não foi possível encontrar a origem. Por favor, verifique o endereço.');
-        return;
-    }
-    if (!destinationCoords) {
-        alert('Não foi possível encontrar o destino. Por favor, verifique o endereço.');
-        return;
-    }
+    try {
+        const originCoords = await geocodeAddressWithFallback(originAddress);
+        const destinationCoords = await geocodeAddressWithFallback(destinationAddress);
 
-    const leafletWaypoints = [
-        L.Routing.waypoint(L.latLng(originCoords.lat, originCoords.lon), originCoords.display_name),
-    ];
-
-    // Adicionar paradas intermediárias
-    for (const address of intermediateWaypoints) {
-        const coords = await geocodeAddressWithFallback(address);
-        if (coords) {
-            leafletWaypoints.push(L.Routing.waypoint(L.latLng(coords.lat, coords.lon), coords.display_name));
-        } else {
-            console.warn(`Não foi possível geocodificar a parada: ${address}`);
+        if (!originCoords) {
+            alert('Não foi possível encontrar a origem. Por favor, verifique o endereço.');
+            calculateRouteBtn.disabled = false;
+            calculateRouteBtn.textContent = 'Calcular Rota';
+            return;
         }
-    }
-
-    leafletWaypoints.push(
-        L.Routing.waypoint(L.latLng(destinationCoords.lat, destinationCoords.lon), destinationCoords.display_name)
-    );
-
-    // Remover marcadores antigos
-    for (const key in markers) {
-        map.removeLayer(markers[key]);
-    }
-    Object.keys(markers).forEach(key => delete markers[key]);
-
-    // Adicionar novos marcadores
-    markers['origin'] = L.marker([originCoords.lat, originCoords.lon], { icon: greenIcon }).addTo(map)
-        .bindPopup(`<b>Origem:</b> ${originCoords.display_name}`);
-
-    intermediateWaypoints.forEach(async (address, index) => {
-        const coords = await geocodeAddressWithFallback(address);
-        if (coords) {
-            const waypointId = `waypoint-${Array.from(document.querySelectorAll('[id^="waypoint-"][id$="-input"]')).findIndex(input => input.value === address) + 1}`;
-            markers[waypointId] = L.marker([coords.lat, coords.lon], { icon: blueIcon }).addTo(map)
-                .bindPopup(`<b>Parada ${index + 1}:</b> ${coords.display_name}`);
+        if (!destinationCoords) {
+            alert('Não foi possível encontrar o destino. Por favor, verifique o endereço.');
+            calculateRouteBtn.disabled = false;
+            calculateRouteBtn.textContent = 'Calcular Rota';
+            return;
         }
-    });
 
-    markers['destination'] = L.marker([destinationCoords.lat, destinationCoords.lon], { icon: redIcon }).addTo(map)
-        .bindPopup(`<b>Destino:</b> ${destinationCoords.display_name}`);
+        calculateRouteBtn.textContent = 'Buscando paradas...';
 
+        const leafletWaypoints = [
+            L.Routing.waypoint(L.latLng(originCoords.lat, originCoords.lon), originCoords.display_name),
+        ];
 
-    // Remover controle de rota existente, se houver
-    if (routingControl) {
-        map.removeControl(routingControl);
-    }
-
-    // Criar novo controle de rota
-    routingControl = L.Routing.control({
-        waypoints: leafletWaypoints,
-        routeWhileDragging: true,
-        showAlternatives: false,
-        altLineOptions: {
-            styles: [
-                { color: 'black', opacity: 0.15, weight: 9 },
-                { color: 'white', opacity: 0.8, weight: 6 },
-                { color: 'blue', opacity: 0.5, weight: 2 }
-            ]
-        },
-        createMarker: function (i, waypoint, n) {
-            let icon = blueIcon; // Paradas intermediárias
-            if (i === 0) {
-                icon = greenIcon; // Origem
-            } else if (i === n - 1) {
-                icon = redIcon; // Destino
+        // Adicionar paradas intermediárias
+        for (const address of intermediateWaypoints) {
+            const coords = await geocodeAddressWithFallback(address);
+            if (coords) {
+                leafletWaypoints.push(L.Routing.waypoint(L.latLng(coords.lat, coords.lon), coords.display_name));
+            } else {
+                console.warn(`Não foi possível geocodificar a parada: ${address}`);
             }
-            return L.marker(waypoint.latLng, { icon: icon }).bindPopup(waypoint.name);
-        },
-        language: 'pt', // Define o idioma para português
-        router: L.Routing.osrmv1({
-            serviceUrl: 'https://router.project-osrm.org/route/v1' // OSRM para roteamento
-        })
-    }).addTo(map);
+        }
 
-    routingControl.on('routesfound', function (e) {
-        const routes = e.routes;
-        const summary = routes[0].summary;
+        leafletWaypoints.push(
+            L.Routing.waypoint(L.latLng(destinationCoords.lat, destinationCoords.lon), destinationCoords.display_name)
+        );
 
-        totalDistanceSpan.textContent = `${(summary.totalDistance / 1000).toFixed(2)} km`;
-        totalTimeSpan.textContent = `${formatTime(summary.totalTime)}`;
+        calculateRouteBtn.textContent = 'Calculando rota...';
 
-        // Exibir instruções de rota
-        routeInstructionsDiv.innerHTML = '<h3>Instruções Detalhadas:</h3><ul></ul>';
-        const instructionsList = routeInstructionsDiv.querySelector('ul');
+        // Remover controle de rota existente, se houver
+        if (routingControl) {
+            map.removeControl(routingControl);
+        }
 
-        routes[0].instructions.forEach(instruction => {
-            const li = document.createElement('li');
-            li.textContent = instruction.text;
-            instructionsList.appendChild(li);
+        // Criar novo controle de rota
+        routingControl = L.Routing.control({
+            waypoints: leafletWaypoints,
+            routeWhileDragging: true,
+            showAlternatives: false,
+            fitSelectedRoutes: true,
+            createMarker: function (i, waypoint, n) {
+                let icon = blueIcon; // Paradas intermediárias
+                if (i === 0) {
+                    icon = greenIcon; // Origem
+                } else if (i === n - 1) {
+                    icon = redIcon; // Destino
+                }
+                return L.marker(waypoint.latLng, { icon: icon, draggable: true }).bindPopup(waypoint.name);
+            },
+            language: 'pt', // Define o idioma para português
+            router: L.Routing.osrmv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1' // OSRM para roteamento
+            })
+        }).addTo(map);
+
+        routingControl.on('routesfound', function (e) {
+            const routes = e.routes;
+            const summary = routes[0].summary;
+
+            totalDistanceSpan.textContent = `${(summary.totalDistance / 1000).toFixed(2)} km`;
+            totalTimeSpan.textContent = `${formatTime(summary.totalTime)}`;
+
+            // Exibir instruções de rota
+            routeInstructionsDiv.innerHTML = '<h3>Instruções Detalhadas:</h3><ul></ul>';
+            const instructionsList = routeInstructionsDiv.querySelector('ul');
+
+            routes[0].instructions.forEach(instruction => {
+                const li = document.createElement('li');
+                li.textContent = instruction.text;
+                instructionsList.appendChild(li);
+            });
+
+            calculateRouteBtn.disabled = false;
+            calculateRouteBtn.textContent = 'Calcular Rota';
         });
-    });
 
-    routingControl.on('routingerror', function (e) {
-        console.error('Erro de roteamento:', e);
-        alert('Não foi possível calcular a rota. Verifique os endereços e tente novamente.');
-        totalDistanceSpan.textContent = '--';
-        totalTimeSpan.textContent = '--';
-        routeInstructionsDiv.innerHTML = '';
-    });
+        routingControl.on('routingerror', function (e) {
+            console.error('Erro de roteamento:', e);
+            alert('Não foi possível calcular a rota. Verifique os endereços e tente novamente.');
+            totalDistanceSpan.textContent = '--';
+            totalTimeSpan.textContent = '--';
+            routeInstructionsDiv.innerHTML = '';
+            calculateRouteBtn.disabled = false;
+            calculateRouteBtn.textContent = 'Calcular Rota';
+        });
+    } catch (error) {
+        console.error('Erro geral ao calcular rota:', error);
+        alert('Ocorreu um erro ao calcular a rota. Detalhes no console.');
+        calculateRouteBtn.disabled = false;
+        calculateRouteBtn.textContent = 'Calcular Rota';
+    }
 });
 
 // Função para formatar o tempo
