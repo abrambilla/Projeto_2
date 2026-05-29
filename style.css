@@ -1,0 +1,181 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #1a202c;
+    color: #cbd5e0;
+    /* Cor de texto padrão para o tema escuro */
+}
+
+#map-container {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+}
+
+.sidebar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 350px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: rgba(30, 41, 59, 0.7);
+    /* Fundo translúcido */
+    backdrop-filter: blur(10px);
+    /* Efeito glassmorphism */
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    z-index: 1000;
+    color: #e2e8f0;
+    /* Cor de texto para o painel */
+}
+
+.sidebar h1,
+.sidebar h2 {
+    color: #4dc0b5;
+    /* Ciano */
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #a0aec0;
+}
+
+.input-group input[type="text"] {
+    width: calc(100% - 20px);
+    padding: 10px;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    background-color: #2d3748;
+    color: #e2e8f0;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.input-group input[type="text"]:focus {
+    border-color: #38b2ac;
+    /* Ciano */
+    outline: none;
+}
+
+.btn {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #ffffff;
+    background: linear-gradient(to right, #4dc0b5, #3182ce);
+    /* Degradê Ciano para Azul-Cobalto */
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+}
+
+#route-details {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#route-details p {
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+#route-instructions ul {
+    list-style: none;
+    padding: 0;
+}
+
+#route-instructions li {
+    background-color: rgba(45, 55, 72, 0.6);
+    margin-bottom: 8px;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 0.95rem;
+}
+
+/* Ocultar a tabela de direções nativa da Leaflet Routing Machine */
+.leaflet-routing-container.leaflet-control {
+    display: none;
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+    .sidebar {
+        width: calc(100% - 40px);
+        left: 20px;
+        right: 20px;
+        top: 20px;
+        max-height: calc(100vh - 40px);
+    }
+}
+
+/* Estilos para autocomplete */
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid #4a5568;
+    border-bottom: none;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #2d3748;
+    color: #e2e8f0;
+}
+
+.autocomplete-items div {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #4a5568;
+}
+
+.autocomplete-items div:hover {
+    background-color: #4a5568;
+}
+
+.autocomplete-active {
+    background-color: #38b2ac !important;
+    color: #ffffff;
+}
+
+/* Estilo para o botão de remover parada */
+.remove-waypoint-btn {
+    background: none;
+    border: none;
+    color: #fc8181;
+    /* Vermelho claro */
+    cursor: pointer;
+    font-size: 1.2rem;
+    margin-left: 10px;
+    float: right;
+}
+
+.remove-waypoint-btn:hover {
+    color: #e53e3e;
+    /* Vermelho mais escuro */
+}
